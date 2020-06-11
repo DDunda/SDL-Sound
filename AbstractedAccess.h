@@ -1,0 +1,272 @@
+#pragma once
+
+struct ValueContainer {
+	size_t ownerships;
+	ValueContainer() {
+		ownerships = 1;
+	}
+	~ValueContainer() {
+	}
+	void addPtr() {
+		ownerships++;
+	}
+	void removePtr() {
+		ownerships--;
+		if (ownerships == 0) delete this;
+	}
+};
+
+template<class T>
+class EasyPointer {
+public:
+	ValueContainer* internalPtr = NULL;
+	T* ptr = NULL;
+
+	EasyPointer() {}
+	EasyPointer(T* val) : internalPtr(new ValueContainer()), ptr(val) {
+		internalPtr->addPtr();
+	}
+	EasyPointer(const EasyPointer<T>& val) : internalPtr(val.internalPtr), ptr(val.ptr) {
+		internalPtr->addPtr();
+	}
+	template <class T2>
+	EasyPointer(const EasyPointer<T2>& val) : internalPtr(val.internalPtr), ptr((T*)val.ptr) {
+		internalPtr->addPtr();
+	}
+	~EasyPointer() {
+		if (internalPtr == NULL) return;
+
+		internalPtr->removePtr();
+
+		if (internalPtr->ownerships == 0) delete ptr;
+		internalPtr = NULL;
+		ptr = NULL;
+	}
+	template <class T2>
+	void NewPointer(T2* val) {
+		if (internalPtr != NULL) internalPtr->removePtr();
+		internalPtr = new ValueContainer();
+		ptr = (T*)val;
+	}
+	void NewPointer(T* val) {
+		if (internalPtr != NULL) internalPtr->removePtr();
+		internalPtr = new ValueContainer();
+		ptr = val;
+	}
+	void NewPointer() {
+		NewPointer(new T);
+	}
+	T& operator* ()
+	{
+		return *ptr;
+	}
+	T* operator-> ()
+	{
+		return ptr;
+	}
+	void operator= (const EasyPointer<T>& p) {
+		if (internalPtr != NULL) internalPtr->removePtr();
+
+		internalPtr = p.internalPtr;
+		ptr = p.ptr;
+
+		if (internalPtr != NULL) internalPtr->addPtr();
+		else ptr = NULL;
+	}
+	template <class T2>
+	void operator= (const EasyPointer<T2>& p) {
+		if (internalPtr != NULL) internalPtr->removePtr();
+
+		internalPtr = p.internalPtr;
+		ptr = (T*)p.ptr;
+
+		if (internalPtr != NULL) internalPtr->addPtr();
+		else ptr = NULL;
+	}
+	bool isSet() {
+		return !(internalPtr == NULL);
+	}
+};
+
+template <class T>
+class GetVal {
+public:
+	virtual T Get() {
+		return T();
+	};
+};
+
+template <class T>
+class SetVal {
+public:
+	virtual void Set(T input) = 0;
+};
+
+template <class T>
+class Source : public GetVal<T> {
+public:
+	virtual void reset() = 0;
+};
+
+template <class T>
+class Val : public Source<float>, public SetVal<T> {
+private:
+	T val;
+public:
+	Val(T v) {
+		val = v;
+	}
+	T Get() {
+		return val;
+	}
+	void Set(T input) {
+		val = input;
+	};
+	void reset() {}
+};
+
+template <class T>
+class pVal : public Source<float>, public SetVal<T> {
+private:
+	T* val;
+public:
+	pVal(T* v) {
+		val = v;
+	}
+	T Get() {
+		return *val;
+	}
+	T& Get() {
+		return *val;
+	}
+	void Set(T input) {
+		*val = input;
+	}
+	void reset() {}
+};
+
+/*#pragma once
+
+template <class T>
+class GetVal {
+public:
+	virtual T Get() {
+		return T();
+	};
+};
+
+template <class T>
+class SetVal {
+public:
+	virtual void Set(T input) = 0;
+};
+
+template <class T>
+class Source : public GetVal<T> {
+public:
+	virtual void reset() = 0;
+};
+
+template <class T>
+class Val : public Source<T>, public SetVal<T> {
+private:
+	T val;
+public:
+	Val(T v) {
+		val = v;
+	}
+	T Get() {
+		return val;
+	}
+	void Set(T input) {
+		val = input;
+	};
+	void reset() {}
+};
+
+template <class T>
+class pVal : public Source<T>, public SetVal<T> {
+private:
+	T* val;
+public:
+	pVal(T* v) {
+		val = v;
+	}
+	T Get() {
+		return *val;
+	}
+	T& Get() {
+		return *val;
+	}
+	void Set(T input) {
+		*val = input;
+	}
+	void reset() {}
+};
+
+template<class T>
+struct ValueContainer {
+	T* val;
+	size_t ownerships;
+	ValueContainer(T* val) {
+		this->val = val;
+		ownerships = 1;
+	}
+	~ValueContainer() {
+		delete val;
+	}
+	void addPtr() {
+		ownerships++;
+	}
+	void removePtr() {
+		ownerships--;
+		if (ownerships == 0) delete this;
+	}
+};
+
+template<class T>
+class EasyPointer {
+public:
+	ValueContainer<T>* internalPtr = NULL;
+	EasyPointer() {}
+	EasyPointer(T* val) {
+		internalPtr = new ValueContainer<T>(val);
+		internalPtr->addPtr();
+	}
+	template <class T2>
+	EasyPointer(EasyPointer<T2>& val) {
+		internalPtr = (ValueContainer<T>*)val.internalPtr;
+		internalPtr->addPtr();
+	}
+	~EasyPointer() {
+		if (internalPtr == NULL) return;
+
+		internalPtr->removePtr();
+		internalPtr = NULL;
+	}
+	void NewPointer(T* val) {
+		if (internalPtr != NULL) internalPtr->removePtr();
+		internalPtr = new ValueContainer<T>(val);
+	}
+	void NewPointer() {
+		NewPointer(new T);
+	}
+	T& operator* ()
+	{
+		return *internalPtr->val;
+	}
+	T* operator-> ()
+	{
+		return internalPtr->val;
+	}
+	void operator= (const EasyPointer<T>& D) {
+		if (internalPtr != NULL) internalPtr->removePtr();
+
+		internalPtr = D.internalPtr;
+
+		if (internalPtr != NULL) internalPtr->addPtr();
+	}
+	bool isSet() {
+		return !(internalPtr == NULL);
+	}
+};*/

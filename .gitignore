@@ -1,44 +1,6 @@
-
-.vs/SDL Sound/v16/.suo
-.vs/SDL Sound/v16/Browse.VC.db
-.vs/SDL Sound/v16/ipch/AutoPCH/6cc2eac28b4462db/SDL SOUND.ipch
-.vs/SDL Sound/v16/ipch/AutoPCH/8f86917048ab5b30/SDL SOUND.ipch
-.vs/SDL Sound/v16/ipch/AutoPCH/efc3696ecce1da50/SDL SOUND.ipch
-Debug/SDL Sound.exe
-Debug/SDL Sound.ilk
-Debug/SDL Sound.log
-Debug/SDL Sound.obj
-Debug/SDL Sound.pdb
-Debug/SDL Sound.tlog/CL.command.1.tlog
-Debug/SDL Sound.tlog/CL.read.1.tlog
-Debug/SDL Sound.tlog/CL.write.1.tlog
-Debug/SDL Sound.tlog/CopyFile.command.1.tlog
-Debug/SDL Sound.tlog/CopyFile.read.1.tlog
-Debug/SDL Sound.tlog/CopyFile.write.1.tlog
-Debug/SDL Sound.tlog/link.command.1.tlog
-Debug/SDL Sound.tlog/link.read.1.tlog
-Debug/SDL Sound.tlog/link.write.1.tlog
-Debug/SDL Sound.tlog/SDL Sound.lastbuildstate
-Debug/SDL2.dll
-Debug/vc142.idb
-Debug/vc142.pdb
-Release/SDL Sound.exe
-Release/SDL Sound.iobj
-Release/SDL Sound.ipdb
-Release/SDL Sound.log
-Release/SDL Sound.obj
-Release/SDL Sound.pdb
-Release/SDL Sound.tlog/CL.command.1.tlog
-Release/SDL Sound.tlog/CL.read.1.tlog
-Release/SDL Sound.tlog/CL.write.1.tlog
-Release/SDL Sound.tlog/CopyFile.command.1.tlog
-Release/SDL Sound.tlog/CopyFile.read.1.tlog
-Release/SDL Sound.tlog/CopyFile.write.1.tlog
-Release/SDL Sound.tlog/link.command.1.tlog
-Release/SDL Sound.tlog/link.delete.1.tlog
-Release/SDL Sound.tlog/link.read.1.tlog
-Release/SDL Sound.tlog/link.write.1.tlog
-Release/SDL Sound.tlog/SDL Sound.lastbuildstate
-Release/SDL Sound.tlog/SDL Sound.write.1u.tlog
-Release/SDL2.dll
-Release/vc142.pdb
+.vs/
+Debug/
+Release/
+x64/
+SDL2/
+SDL2_mixer/
