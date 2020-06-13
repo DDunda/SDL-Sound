@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 struct ValueContainer {
 	size_t ownerships;
 	ValueContainer() {
@@ -102,11 +104,27 @@ public:
 	virtual void Set(T input) = 0;
 };
 
-template <class T>
-class Source : public GetVal<T> {
+class Updater {
+private:
+	static std::vector<Updater*> sources;
 public:
-	virtual void reset() = 0;
+	Updater() {
+		sources.push_back(this);
+	}
+	~Updater() {
+		auto it = std::find(sources.begin(), sources.end(), this);
+		sources.erase(it, it + 1);
+	}
+	virtual void reset() {}
+	virtual void frameUpdate() {}
+
+	static void updateAllSources() {
+		for (auto s : sources) s->frameUpdate();
+	}
 };
+
+template <class T>
+class Source : public GetVal<T>, public Updater {};
 
 template <class T>
 class Val : public Source<float>, public SetVal<T> {

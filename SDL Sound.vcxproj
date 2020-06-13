@@ -159,6 +159,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AbstractedAccess.cpp" />
     <ClCompile Include="FloatField.cpp" />
     <ClCompile Include="InteractiveElement.cpp" />
     <ClCompile Include="IntField.cpp" />

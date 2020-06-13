@@ -288,6 +288,8 @@ EasyPointer<blendAdd> SetupVoice(int base = 100, int harmonics = 50) {
 	return soundMerge;
 }
 
+
+
 void SetupVolField() {
 	volField = new FloatField();
 
@@ -357,16 +359,86 @@ void SetupPlayButton() {
 	};
 }
 
+class KeyListener : public Source<float> {
+private:
+	bool active = false;
+	fadeFilter f;
+public:
+	SDL_Keycode key;
+	KeyListener(EasyPointer<Source<float>> s, SDL_Keycode k) : f(s, new Val<float>(0.01), new Val<float>(10/SOUND_FREQUENCY)) {
+		key = k;
+	}
+	void frameUpdate() {
+		if (keyReleased(key)) {
+			active = false;
+			f.stop();
+		}
+		else if(keyPressed(key)) {
+			active = true;
+			f.start();
+		}
+	}
+	float Get() {
+		return f.Get();
+	}
+	void reset() {
+		f.reset();
+	}
+};
+
+void MakeKey(blendAdd& b, float f, SDL_Keycode k) {
+	//auto vibrato = new dualAdd(new dualMultiply(new sineSound(new Val<float>(2)), new Val<float>(1 / 16.0)), new Val<float>(1 / 2.0));
+	//auto sound = new pulseSound(new Val<float>(f),vibrato);
+	auto vibrato = new dualMultiply(new dualAdd(new dualMultiply(new sineSound(new Val<float>(5)),new Val<float>(0.01)), new Val<float>(1)), new Val<float>(f));
+	auto sound = new sineSound(vibrato);
+	b.addSource(new KeyListener(sound,k));
+}
+
+EasyPointer<Source<float>> MakeKeyboard() {
+	blendAdd* keyboardBlender = new blendAdd();
+
+	// Black keys:  2 3   5 6 7
+	// White keys: q w e r t y u 
+
+	using namespace noteFrequencies;
+	MakeKey(*keyboardBlender, C4 , SDLK_TAB         );
+	MakeKey(*keyboardBlender, Cs4, SDLK_1           );
+	MakeKey(*keyboardBlender, D4 , SDLK_q           );
+	MakeKey(*keyboardBlender, Ds4, SDLK_2           );
+	MakeKey(*keyboardBlender, E4 , SDLK_w           );
+	MakeKey(*keyboardBlender, F4 , SDLK_e           );
+	MakeKey(*keyboardBlender, Fs4, SDLK_4           );
+	MakeKey(*keyboardBlender, G4 , SDLK_r           );
+	MakeKey(*keyboardBlender, Gs4, SDLK_5           );
+	MakeKey(*keyboardBlender, A4 , SDLK_t           );
+	MakeKey(*keyboardBlender, As4, SDLK_6           );
+	MakeKey(*keyboardBlender, B4,  SDLK_y           );
+	MakeKey(*keyboardBlender, C5,  SDLK_u           );
+	MakeKey(*keyboardBlender, Cs5, SDLK_8           );
+	MakeKey(*keyboardBlender, D5,  SDLK_i           );
+	MakeKey(*keyboardBlender, Ds5, SDLK_9           );
+	MakeKey(*keyboardBlender, E5,  SDLK_o           );
+	MakeKey(*keyboardBlender, F5,  SDLK_p           );
+	MakeKey(*keyboardBlender, Fs5, SDLK_MINUS       );
+	MakeKey(*keyboardBlender, G5,  SDLK_LEFTBRACKET );
+	MakeKey(*keyboardBlender, Gs5, SDLK_EQUALS      );
+	MakeKey(*keyboardBlender, A5,  SDLK_RIGHTBRACKET);
+	MakeKey(*keyboardBlender, As5, SDLK_BACKSPACE   );
+	MakeKey(*keyboardBlender, B5,  SDLK_BACKSLASH   );
+	
+	return keyboardBlender;
+}
+
 int main(int argc, char* argv[]) {
 	initialiseSDL();
 
 	num_text = IMG_LoadTexture(renderer, "nums.png");
 	char_text = IMG_LoadTexture(renderer, "chars.png");
 
-	SetupFileField();
-	SetupPlayButton();
+	//SetupFileField();
+	//SetupPlayButton();
 	SetupVolField();
-	SetupFreqField();
+	//SetupFreqField();
 		
 /* A simple melody
 	C4,E4,A4,B4,
@@ -390,9 +462,10 @@ int main(int argc, char* argv[]) {
 	Df3,C4,Bf3,F3,
 */
 	
-	song = new PianoRoll("Melody1.prm");
+	//song = new PianoRoll("Melody1.prm");
 
-	EasyPointer<volumeFilter> volMod = new volumeFilter(song, volField);
+	//EasyPointer<volumeFilter> volMod = new volumeFilter(song, volField);
+	EasyPointer<volumeFilter> volMod = new volumeFilter(MakeKeyboard(), volField);
 
 	finalFilter = new fadeFilter(
 		volMod,
@@ -406,6 +479,9 @@ int main(int argc, char* argv[]) {
 	lastTime = SDL_GetTicks();
 
 	int lastFrameEnd = SDL_GetTicks();
+
+	finalFilter->start();
+
 	while (running || soundRunning) {
 		lastTime = currentTime;
 		currentTime = SDL_GetTicks();
@@ -417,6 +493,7 @@ int main(int argc, char* argv[]) {
 
 		InteractiveElement::UpdateElementFocus();
 		RenderableElement::UpdateAllElements();
+		Updater::updateAllSources();
 
 		/*for (int i = 0; i < harmonics; i++) {
 			*volumes[i]->targetVolume = 

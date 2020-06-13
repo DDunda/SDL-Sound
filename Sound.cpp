@@ -12,6 +12,9 @@
 // Returns wave
 typedef float(*synth_func)(float t);
 
+template<class T>
+using Pipe = EasyPointer<Source<T>>;
+
 namespace noteFrequencies {
 	const float
 		C0 = 16.35,
@@ -190,11 +193,11 @@ public:
 
 class filter : public soundMaker {
 public:
-	EasyPointer<Source<float>> source;
-	filter(EasyPointer<Source<float>> sound_src) {
+	Pipe<float> source;
+	filter(Pipe<float> sound_src) {
 		source = sound_src;
 	}
-	void linkSource(EasyPointer<Source<float>> sound_src) {
+	void linkSource(Pipe<float> sound_src) {
 		source = sound_src;
 	}
 	virtual float getSound() {
@@ -207,8 +210,8 @@ public:
 
 class blendFilter : public soundMaker {
 public:
-	std::vector<EasyPointer<Source<float>>> sources;
-	void addSource(EasyPointer<Source<float>> sound_src) {
+	std::vector<Pipe<float>> sources;
+	void addSource(Pipe<float> sound_src) {
 		sources.push_back(sound_src);
 	}
 	virtual float getSound() {
@@ -237,16 +240,57 @@ public:
 	};
 };
 
+class dualFilter : public soundMaker {
+public:
+	Pipe<float> source1;
+	Pipe<float> source2;
+	dualFilter(Pipe<float> src1, Pipe<float> src2) {
+		source1 = src1;
+		source2 = src2;
+	}
+	virtual float getSound() {
+		return 0;
+	}
+	virtual void reset() {
+		source1->reset();
+		source2->reset();
+	}
+};
+
+class dualAdd : public dualFilter {
+public:
+	dualAdd(Pipe<float> s1, Pipe<float> s2) : dualFilter(s1, s2) {}
+	float getSound() {
+		return source1->Get() + source2->Get();
+	}
+};
+
+class dualMultiply : public dualFilter {
+public:
+	dualMultiply(Pipe<float> s1, Pipe<float> s2) : dualFilter(s1, s2) {}
+	float getSound() {
+		return source1->Get() * source2->Get();
+	}
+};
+
+class dualDivide : public dualFilter {
+public:
+	dualDivide(Pipe<float> s1, Pipe<float> s2) : dualFilter(s1, s2) {}
+	float getSound() {
+		return source1->Get() / source2->Get();
+	}
+};
+
 class propertyWave : public Source<float> {
 private:
 	float time;
 public:
-	EasyPointer<Source<float>> min;
-	EasyPointer<Source<float>> max;
-	EasyPointer<Source<float>> frequency;
+	Pipe<float> min;
+	Pipe<float> max;
+	Pipe<float> frequency;
 
 	// f, o, min, max 
-	propertyWave(EasyPointer<Source<float>> freq, float offset, EasyPointer<Source<float>> min, EasyPointer<Source<float>> max) {
+	propertyWave(Pipe<float> freq, float offset, Pipe<float> min, Pipe<float> max) {
 		this->min = min;
 		this->max = max;
 		frequency = freq;
@@ -277,8 +321,8 @@ class volumeFilter : public filter {
 private:
 	float internalVolume;
 public:
-	EasyPointer<Source<float>> targetVolume;
-	volumeFilter(EasyPointer<Source<float>> src, EasyPointer<Source<float>> vol) : filter(src) {
+	Pipe<float> targetVolume;
+	volumeFilter(Pipe<float> src, Pipe<float> vol) : filter(src) {
 		internalVolume = 0;
 		targetVolume = vol;
 	}
@@ -301,8 +345,8 @@ private:
 	float time;
 public:
 	std::vector<float> vals;
-	EasyPointer<Source<float>> frequency;
-	Modulator(EasyPointer<Source<float>> f) {
+	Pipe<float> frequency;
+	Modulator(Pipe<float> f) {
 		time = 0;
 		frequency = f;
 	}
@@ -328,8 +372,8 @@ private:
 	float time;
 public:
 	synth_func sound;
-	EasyPointer<Source<float>> frequency;
-	synthSound(synth_func synth, EasyPointer<Source<float>>& f) {
+	Pipe<float> frequency;
+	synthSound(synth_func synth, Pipe<float>& f) {
 		time = 0;
 		frequency = f;
 		sound = synth;
@@ -364,12 +408,12 @@ synth_func sawtoothFunc = [](float t) -> float {
 
 class sineSound : public synthSound {
 public:
-	sineSound(EasyPointer<Source<float>> f) : synthSound(sineFunc, f) {}
+	sineSound(Pipe<float> f) : synthSound(sineFunc, f) {}
 };
 
 class squareSound : public synthSound {
 public:
-	squareSound(EasyPointer<Source<float>> f) : synthSound(squareFunc, f) {}
+	squareSound(Pipe<float> f) : synthSound(squareFunc, f) {}
 };
 
 class triangleSound : public synthSound {
@@ -391,9 +435,9 @@ private:
 		amplitude = roundf(rand() / (float)RAND_MAX) * 2 - 1;
 	}
 public:
-	EasyPointer<Source<float>> frequency;
-	
-	noiseSound(EasyPointer<Source<float>> f) {
+	Pipe<float> frequency;
+
+	noiseSound(Pipe<float> f) {
 		frequency = f;
 	}
 	float getSound() {
@@ -413,68 +457,96 @@ public:
 
 };
 
+class pulseSound : public soundMaker {
+private:
+	float progress = 0;
+public:
+	Pipe<float> frequency;
+	Pipe<float> duty;
+
+	pulseSound(Pipe<float> f, Pipe<float> d) {
+		frequency = f;
+		duty = d;
+	}
+	float getSound() {
+		progress += frequency->Get() / SOUND_FREQUENCY;
+		if (progress > 1)
+			progress = fmodf(progress, 1);
+		return progress > duty->Get() ? -1 : 1;
+	}
+
+	void reset() {
+		progress = 0;
+		frequency->reset();
+	}
+
+};
+
 class fadeFilter : public filter {
 private:
-	float trail = 0;
-	bool stopped = false;
-	int resuming = 0;
-	std::queue<float> resumeBuffer;
-public:
-	EasyPointer<Source<float>> finishThreshold;
-	EasyPointer<Source<float>> decayRate;
+	float volume = 0;
+	bool stopped = true;
+	std::deque<float> resumeBuffer;
+	SDL_mutex* bufferLock;
 
-	fadeFilter(EasyPointer<Source<float>> s, EasyPointer<Source<float>> threshold, EasyPointer<Source<float>> decay) : filter(s) {
+	// "Fade" is the trail left after audio is stopped, a rudimentary fadeout
+	float BlendWithFade(float v) {
+		SDL_LockMutex(bufferLock);
+		if (!resumeBuffer.empty()) {
+			v += resumeBuffer.front();
+			resumeBuffer.pop_front();
+		}
+		SDL_UnlockMutex(bufferLock);
+
+		return v;
+	}
+public:
+	Pipe<float> finishThreshold;
+	Pipe<float> decayRate;
+
+	fadeFilter(Pipe<float> s, Pipe<float> threshold, Pipe<float> decay) : filter(s) {
 		finishThreshold = threshold;
 		decayRate = decay;
+		bufferLock = SDL_CreateMutex();
 	};
+	~fadeFilter() {
+		SDL_DestroyMutex(bufferLock);
+	}
 	bool isStopped() {
 		return stopped;
 	}
 	bool finished() {
-		return stopped && abs(trail) < finishThreshold->Get();
+		return stopped && volume < finishThreshold->Get();
 	}
 	float getSound() {
-		if (!stopped) {
-			if (trail == 1) return source->Get();
+		// Fade in to full volume
+		volume += decayRate->Get();
+		if (volume > 1) volume = 1;
 
-			if (trail < 1) trail += decayRate->Get();
-			if (trail < 1) {
-				if (!resumeBuffer.empty()) {
-					float val = resumeBuffer.front();
-					resumeBuffer.pop();
-					return val * trail;
-				}
-			}
+		if (stopped) return BlendWithFade(0);
 
-			trail = 1;
-			while (!resumeBuffer.empty()) resumeBuffer.pop();
-			return source->Get();
-		}
-		
-		if (trail == 0) return 0;
-
-		if (trail > 0) trail -= decayRate->Get();
-		if (trail > 0) {
-			float val = source->Get();
-			resumeBuffer.push(val);
-			return val * trail;
-		}
-
-		trail = 0;
-		return 0;
+		return BlendWithFade(source->Get() * volume);
 	}
 	void stop() {
 		stopped = true;
+		SDL_LockMutex(bufferLock);
+		for (int i = 0; volume > 0; i++, volume -= decayRate->Get()) {
+			if (i >= resumeBuffer.size())
+				resumeBuffer.push_back(0);
+			resumeBuffer[i] += source->Get() * volume;
+		}
+		SDL_UnlockMutex(bufferLock);
+		volume = 0;
+		source->reset();
+		decayRate->reset();
 	}
 	void start() {
 		stopped = false;
 	}
 	void restart() {
 		stop();
-		finishThreshold->reset();
-		decayRate->reset();
-		source->reset();
 		start();
+		finishThreshold->reset();
 	}
 	void reset() {
 		restart();
