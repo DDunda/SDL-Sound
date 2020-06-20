@@ -485,6 +485,7 @@ public:
 class fadeFilter : public filter {
 private:
 	float volume = 0;
+	float lastSample = 0;
 	bool stopped = true;
 	std::deque<float> resumeBuffer;
 	SDL_mutex* bufferLock;
@@ -497,6 +498,7 @@ private:
 			resumeBuffer.pop_front();
 		}
 		SDL_UnlockMutex(bufferLock);
+		lastSample = v;
 
 		return v;
 	}
@@ -516,14 +518,14 @@ public:
 		return stopped;
 	}
 	bool finished() {
-		return stopped && volume < finishThreshold->Get();
+		return stopped && resumeBuffer.empty();
 	}
 	float getSound() {
 		// Fade in to full volume
+		if (stopped) return BlendWithFade(0);
+
 		volume += decayRate->Get();
 		if (volume > 1) volume = 1;
-
-		if (stopped) return BlendWithFade(0);
 
 		return BlendWithFade(source->Get() * volume);
 	}

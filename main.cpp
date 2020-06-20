@@ -5,6 +5,7 @@
 #include <ctime>
 #include <vector>
 #include <map>
+#include <atomic>
 
 #define SOUND_FREQUENCY 44100.0
 
@@ -132,13 +133,15 @@ Uint32 songLen = 0;
 
 float soundMin = 0;
 float soundMax = 0;
+int samples = 441;
 
+SDL_Rect waveformDrawArea = { 0,0,640,360 };
 Uint32 lastTime;
 Uint32 currentTime;
 float deltaTime;
 
 bool soundRunning = true;
-bool renderRequested = false;
+std::atomic<bool> renderRequested(false);
 
 EasyPointer<TextField> fileField;
 EasyPointer<FloatField> volField;
@@ -176,7 +179,9 @@ void initialiseSDL() {
 		exit(-1);
 	}
 
-	if (SDL_CreateWindowAndRenderer(640, 360, SDL_WINDOW_SHOWN | SDL_WINDOW_INPUT_FOCUS, &window, &renderer) != 0) {
+	screenWidth = 640;
+	screenHeight = 360;
+	if (SDL_CreateWindowAndRenderer(screenWidth, screenHeight, SDL_WINDOW_SHOWN | SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_RESIZABLE, &window, &renderer) != 0) {
 		SDL_DestroyWindow(window);
 		SDL_DestroyRenderer(renderer);
 		exit(-1);
@@ -289,7 +294,6 @@ EasyPointer<blendAdd> SetupVoice(int base = 100, int harmonics = 50) {
 }
 
 
-
 void SetupVolField() {
 	volField = new FloatField();
 
@@ -390,47 +394,147 @@ void MakeKey(blendAdd& b, float f, SDL_Keycode k) {
 	//auto vibrato = new dualAdd(new dualMultiply(new sineSound(new Val<float>(2)), new Val<float>(1 / 16.0)), new Val<float>(1 / 2.0));
 	//auto sound = new pulseSound(new Val<float>(f),vibrato);
 	auto vibrato = new dualMultiply(new dualAdd(new dualMultiply(new sineSound(new Val<float>(5)),new Val<float>(0.01)), new Val<float>(1)), new Val<float>(f));
-	auto sound = new sineSound(vibrato);
+	auto sound = new sawtoothSound(vibrato);
 	b.addSource(new KeyListener(sound,k));
 }
+
+class keyBoardRenderer : public RenderableElement {
+private:
+	void renderBlack(SDL_Renderer* r, bool s, int n) {
+		int w_left = area.w * n / keys;
+		int w_right = area.w * (n+1) / keys;
+
+		int w_w = w_right - w_left;
+		int w_h = area.h;
+		int w_x = area.x + w_left;
+		int w_y = area.y;
+
+		int b_w = w_w * 0.5;
+		int b_h = w_h * 0.5;
+		int b_x = w_x + w_w * 0.75;
+		int b_y = w_y;
+
+		SDL_Rect outer{ b_x,b_y,b_w,b_h };
+		SDL_SetRenderDrawColor(r, 25, 25, 25, 255);
+		SDL_RenderFillRect(r, &outer);
+
+		int border = area.w * 0.1 / keys;
+		SDL_Rect inner{ b_x + border, b_y + border, b_w - 2 * border, b_h - 2 * border };
+		if (!s) SDL_SetRenderDrawColor(r, 56, 56, 56, 255);
+		SDL_RenderFillRect(r, &inner);
+	}
+	void renderWhite(SDL_Renderer* r, bool s, int n) {
+		int left = area.w * n / keys;
+		int right = area.w * (n + 1) / keys;
+
+		int w = right - left;
+		int h = area.h;
+		int x = left;
+		int y = area.y;
+		SDL_Rect outer{ x,y,w,h };
+		SDL_SetRenderDrawColor(r, 225, 225, 225, 255);
+		SDL_RenderFillRect(r, &outer);
+
+		int border = area.w * 0.1 / keys;
+		SDL_Rect inner{ x + border, y + border, w - 2 * border, h - 2 * border };
+		if (!s) SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+		SDL_RenderFillRect(r, &inner);
+	}
+public:
+	SDL_Rect area;
+	int keys;
+
+	std::vector<SDL_Keycode> whiteKeys;
+	std::vector<SDL_Keycode> blackKeys;
+
+	keyBoardRenderer(int k = 14) : keys(k), RenderableElement() {
+		area = { 0,screenHeight / 2, screenWidth, screenHeight / 2 };
+	}
+	void update() {
+		TryCall(OnUpdate);
+		area = { 0,screenHeight / 2, screenWidth, screenHeight / 2 };
+		waveformDrawArea = { 0,0,screenWidth, screenHeight / 2 };
+	};
+	void render(SDL_Renderer* r) {
+		TryCall(OnRender);
+
+		for (int i = 0; i < keys; i++) {
+			renderWhite(r, keyDown(whiteKeys[i]), i);
+		}
+
+		int keyNum = 0;
+		for (int i = 0; i < keys; i++) {
+			if ((i % 7) == 2 || (i % 7) == 6) continue;
+			renderBlack(r, keyDown(blackKeys[keyNum]), i);
+			keyNum++;
+		}
+	};
+};
+
+EasyPointer<keyBoardRenderer> board;
 
 EasyPointer<Source<float>> MakeKeyboard() {
 	blendAdd* keyboardBlender = new blendAdd();
 
-	// Black keys:  2 3   5 6 7
-	// White keys: q w e r t y u 
+	// Black:    1 2   4 5 6   8 9   - = <=   s d   g h j
+	// White: TAB q w e r t y u i o p [ ]  \ z x c v b n m
 
 	using namespace noteFrequencies;
-	MakeKey(*keyboardBlender, C4 , SDLK_TAB         );
-	MakeKey(*keyboardBlender, Cs4, SDLK_1           );
-	MakeKey(*keyboardBlender, D4 , SDLK_q           );
-	MakeKey(*keyboardBlender, Ds4, SDLK_2           );
-	MakeKey(*keyboardBlender, E4 , SDLK_w           );
-	MakeKey(*keyboardBlender, F4 , SDLK_e           );
-	MakeKey(*keyboardBlender, Fs4, SDLK_4           );
-	MakeKey(*keyboardBlender, G4 , SDLK_r           );
-	MakeKey(*keyboardBlender, Gs4, SDLK_5           );
-	MakeKey(*keyboardBlender, A4 , SDLK_t           );
-	MakeKey(*keyboardBlender, As4, SDLK_6           );
-	MakeKey(*keyboardBlender, B4,  SDLK_y           );
-	MakeKey(*keyboardBlender, C5,  SDLK_u           );
-	MakeKey(*keyboardBlender, Cs5, SDLK_8           );
-	MakeKey(*keyboardBlender, D5,  SDLK_i           );
-	MakeKey(*keyboardBlender, Ds5, SDLK_9           );
-	MakeKey(*keyboardBlender, E5,  SDLK_o           );
-	MakeKey(*keyboardBlender, F5,  SDLK_p           );
-	MakeKey(*keyboardBlender, Fs5, SDLK_MINUS       );
-	MakeKey(*keyboardBlender, G5,  SDLK_LEFTBRACKET );
-	MakeKey(*keyboardBlender, Gs5, SDLK_EQUALS      );
-	MakeKey(*keyboardBlender, A5,  SDLK_RIGHTBRACKET);
-	MakeKey(*keyboardBlender, As5, SDLK_BACKSPACE   );
-	MakeKey(*keyboardBlender, B5,  SDLK_BACKSLASH   );
+	MakeKey(*keyboardBlender, C3 , SDLK_TAB         );
+	MakeKey(*keyboardBlender, Cs3, SDLK_1           );
+	MakeKey(*keyboardBlender, D3 , SDLK_q           );
+	MakeKey(*keyboardBlender, Ds3, SDLK_2           );
+	MakeKey(*keyboardBlender, E3 , SDLK_w           );
+	MakeKey(*keyboardBlender, F3 , SDLK_e           );
+	MakeKey(*keyboardBlender, Fs3, SDLK_4           );
+	MakeKey(*keyboardBlender, G3 , SDLK_r           );
+	MakeKey(*keyboardBlender, Gs3, SDLK_5           );
+	MakeKey(*keyboardBlender, A3 , SDLK_t           );
+	MakeKey(*keyboardBlender, As3, SDLK_6           );
+	MakeKey(*keyboardBlender, B3,  SDLK_y           );
+
+	MakeKey(*keyboardBlender, C4,  SDLK_u           );
+	MakeKey(*keyboardBlender, Cs4, SDLK_8           );
+	MakeKey(*keyboardBlender, D4,  SDLK_i           );
+	MakeKey(*keyboardBlender, Ds4, SDLK_9           );
+	MakeKey(*keyboardBlender, E4,  SDLK_o           );
+	MakeKey(*keyboardBlender, F4,  SDLK_p           );
+	MakeKey(*keyboardBlender, Fs4, SDLK_MINUS       );
+	MakeKey(*keyboardBlender, G4,  SDLK_LEFTBRACKET );
+	MakeKey(*keyboardBlender, Gs4, SDLK_EQUALS      );
+	MakeKey(*keyboardBlender, A4,  SDLK_RIGHTBRACKET);
+	MakeKey(*keyboardBlender, As4, SDLK_BACKSPACE   );
+	MakeKey(*keyboardBlender, B4,  SDLK_BACKSLASH   );
 	
+	MakeKey(*keyboardBlender, C5,  SDLK_z           );
+	MakeKey(*keyboardBlender, Cs5, SDLK_s           );
+	MakeKey(*keyboardBlender, D5,  SDLK_x           );
+	MakeKey(*keyboardBlender, Ds5, SDLK_d           );
+	MakeKey(*keyboardBlender, E5,  SDLK_c           );
+	MakeKey(*keyboardBlender, F5,  SDLK_v           );
+	MakeKey(*keyboardBlender, Fs5, SDLK_g           );
+	MakeKey(*keyboardBlender, G5,  SDLK_b           );
+	MakeKey(*keyboardBlender, Gs5, SDLK_h           );
+	MakeKey(*keyboardBlender, A5,  SDLK_n           );
+	MakeKey(*keyboardBlender, As5, SDLK_j           );
+	MakeKey(*keyboardBlender, B5,  SDLK_m           );
+	
+	board = new keyBoardRenderer(21);
+	board->blackKeys = {
+		SDLK_1, SDLK_2, SDLK_4,     SDLK_5,      SDLK_6,
+		SDLK_8, SDLK_9, SDLK_MINUS, SDLK_EQUALS, SDLK_BACKSPACE,
+		SDLK_s, SDLK_d, SDLK_g,     SDLK_h,      SDLK_j,
+	};
+	board->whiteKeys = {
+		SDLK_TAB, SDLK_q, SDLK_w, SDLK_e, SDLK_r,           SDLK_t,            SDLK_y,
+		SDLK_u,   SDLK_i, SDLK_o, SDLK_p, SDLK_LEFTBRACKET, SDLK_RIGHTBRACKET, SDLK_BACKSLASH,
+		SDLK_z,   SDLK_x, SDLK_c, SDLK_v, SDLK_b,           SDLK_n,            SDLK_m,
+	};
+
 	return keyboardBlender;
 }
 
 int main(int argc, char* argv[]) {
-	initialiseSDL();
 
 	num_text = IMG_LoadTexture(renderer, "nums.png");
 	char_text = IMG_LoadTexture(renderer, "chars.png");
@@ -508,16 +612,16 @@ int main(int argc, char* argv[]) {
 		if (finalFilter->finished())
 			soundRunning = false;
 
-		float mult = 1.0 - deltaTime * 2;
+		float mult = deltaTime / 100;
 		if (mult < 0) mult = 0;
-		soundMax *= mult;
-		soundMin *= mult;
 
-		renderRequested = true;
-		while (renderRequested);
+		soundMax -= mult;
+		soundMin += mult;
+		
+		renderRequested.store(true);
+		while (renderRequested.load()) SDL_Delay(1);
 
 		RenderableElement::RenderAllElements(renderer);
-
 		SDL_RenderPresent(renderer);
 
 		int frameEnd = SDL_GetTicks();
@@ -546,35 +650,38 @@ int main(int argc, char* argv[]) {
 int li = 0;
 int soundDrawn = 0;
 void PushAudio(void* userdata, Uint8* stream, int len) {
+	SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 	if (waveOutput.isSet()) {
-		if (renderRequested) {
+		if (renderRequested.load()) {
 			for (int i = 0; i < len / sizeof(float); i++) {
 				soundBuffer[i] = waveOutput->Get();
 				if (soundBuffer[i] > soundMax) soundMax = soundBuffer[i];
-				if (soundBuffer[i] < soundMin) soundMin = soundBuffer[i];
+				if (-soundBuffer[i] > soundMax) soundMax = -soundBuffer[i];
+				if (soundMax < 0.001) soundMax = 0.001;
 
-				if (renderRequested) {
+				if (renderRequested.load()) {
+					int lx = waveformDrawArea.x + (soundDrawn - 1) * waveformDrawArea.w / samples;
+					int x = waveformDrawArea.x + soundDrawn * waveformDrawArea.w / samples;
 					if (!finalFilter->finished()) {
-						SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-						SDL_RenderDrawLine(renderer, soundDrawn, 0, soundDrawn, 360);
-						SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-						if (soundMax != soundMin) {
-							float fitted = 1.0 - (soundBuffer[li] - soundMin) / (soundMax - soundMin);
-							float nextFitted = 1.0 - (soundBuffer[i] - soundMin) / (soundMax - soundMin);
-							SDL_RenderDrawLine(renderer, soundDrawn - 1, 359 * fitted, soundDrawn - 1, 359 * nextFitted);
-						}
+						float fitted = 1.0 - (soundBuffer[li] / 2.0 + soundMax) / 2.0 / soundMax;
+						float nextFitted = 1.0 - (soundBuffer[i] / 2.0 + soundMax) / 2.0 / soundMax;
+						SDL_RenderDrawLine(renderer,
+							lx,
+							waveformDrawArea.y + waveformDrawArea.h * fitted,
+							x,
+							waveformDrawArea.y + waveformDrawArea.h * nextFitted);
 					}
 					else {
 						SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-						SDL_RenderDrawLine(renderer, soundDrawn, 0, soundDrawn, 360);
+						SDL_RenderDrawLine(renderer, x, waveformDrawArea.y, x, waveformDrawArea.y + waveformDrawArea.h);
 						SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-						SDL_RenderDrawPoint(renderer, soundDrawn - 1, 179);
+						SDL_RenderDrawPoint(renderer, x, waveformDrawArea.y + waveformDrawArea.h / 2);
 					}
 					soundDrawn++;
 				}
 
-				if (soundDrawn == 640) {
-					renderRequested = false;
+				if (soundDrawn == samples) {
+					renderRequested.store(false);
 					soundDrawn = 0;
 				}
 				li = i;
@@ -585,15 +692,17 @@ void PushAudio(void* userdata, Uint8* stream, int len) {
 				soundBuffer[i] = waveOutput->Get();
 				if (soundBuffer[i] > soundMax) soundMax = soundBuffer[i];
 				if (soundBuffer[i] < soundMin) soundMin = soundBuffer[i];
+				if (soundMin > -0.001) soundMin = -0.001;
+				if (soundMax < 0.001) soundMax = 0.001;
 				li = i;
 			}
 		}
 	}
 	else {
-		if (renderRequested) {
+		if (renderRequested.load()) {
 			for (int i = 0; i < len / sizeof(float); i++) {
 				soundBuffer[i] = 0;
-				if (renderRequested) {
+				if (renderRequested.load()) {
 					SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 					SDL_RenderDrawLine(renderer, soundDrawn, 0, soundDrawn, 360);
 					SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
@@ -601,8 +710,8 @@ void PushAudio(void* userdata, Uint8* stream, int len) {
 					soundDrawn++;
 				}
 
-				if (soundDrawn == 640) {
-					renderRequested = false;
+				if (soundDrawn == samples) {
+					renderRequested.store(false);
 					soundDrawn = 0;
 					break;
 				}

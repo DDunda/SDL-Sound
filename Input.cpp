@@ -12,6 +12,7 @@ std::map <Uint8, buttonState> mouse_buttons;
 int mouseX;
 int mouseY;
 
+
 bool running = true;
 
 std::string* textEditingOutput = NULL;
@@ -68,6 +69,15 @@ void getEvents() {
 			if(cursorOutput != NULL)
 				*cursorOutput += strlen(e.text.text);
 			
+			break;
+
+		case SDL_WINDOWEVENT:
+			switch (e.window.event) {
+			case SDL_WINDOWEVENT_RESIZED:
+				screenWidth = e.window.data1;
+				screenHeight = e.window.data2;
+				break;
+			}
 			break;
 
 		default:

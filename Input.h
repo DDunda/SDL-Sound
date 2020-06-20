@@ -36,6 +36,8 @@ extern std::map <Uint8, buttonState> mouse_buttons;
 extern int mouseX;
 extern int mouseY;
 
+extern int screenWidth, screenHeight;
+
 extern bool running;
 
 void getEvents();
