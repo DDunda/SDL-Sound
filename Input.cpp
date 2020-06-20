@@ -12,6 +12,7 @@ std::map <Uint8, buttonState> mouse_buttons;
 int mouseX;
 int mouseY;
 
+int screenWidth, screenHeight;
 
 bool running = true;
 

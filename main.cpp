@@ -535,6 +535,7 @@ EasyPointer<Source<float>> MakeKeyboard() {
 }
 
 int main(int argc, char* argv[]) {
+	initialiseSDL();	
 
 	num_text = IMG_LoadTexture(renderer, "nums.png");
 	char_text = IMG_LoadTexture(renderer, "chars.png");
