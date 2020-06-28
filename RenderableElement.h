@@ -10,7 +10,7 @@ class RenderableElement;
 
 typedef void(*callback)(RenderableElement*);
 
-static struct padding {
+struct padding {
 	int top = 0, right = 0, bottom = 0, left = 0;
 };
 

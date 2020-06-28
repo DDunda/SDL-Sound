@@ -4,7 +4,7 @@
 #include <fstream>
 #include <vector> 
 #include <string>
-#include "Sound.cpp"
+#include "Sound.h"
 
 template <class T>
 class PR_Val : public Source<T>, public SetVal<float> {
@@ -57,7 +57,7 @@ private:
 
 	void loadSamples() {
 		if (running) {
-			char* resetBuffer = new char[channelCount>>3 + (channelCount & 8 == 8 ? 1 : 0)];
+			char* resetBuffer = new char[(size_t)(channelCount >> 3) + ((channelCount & 8) ? 1uLL : 0uLL)];
 			input.read((char*)sampleData, sampleBytes);
 
 			float tmp1 = ((float*)sampleData)[0];
@@ -170,7 +170,7 @@ public:
 								Modulator* FM = new Modulator(MakeFloatSource());
 								Uint32 vals;
 								ReadVar(vals);
-								for (int i = 0; i < vals; i++) ReadVar(FM->vals[i]);
+								for (Uint32 i = 0; i < vals; i++) ReadVar(FM->vals[i]);
 								return new sineSound(FM);
 							}
 							default: return new sineSound(MakeFloatSource());
@@ -211,6 +211,7 @@ public:
 					}
 				}
 		}
+		return new fVal(0.0f);
 	}
 
 	void Setup() {
@@ -242,9 +243,9 @@ public:
 		if (!running && fileOpen)
 			return 0;
 
-		time += SamplesPerSecond / SOUND_FREQUENCY;
+		time += SamplesPerSecond / (float)SOUND_FREQUENCY;
 		if (time > 1) {
-			time = fmod(time, 1.0);
+			time = fmod(time, 1.0f);
 			if(fileOpen)
 				loadSamples();
 		}

@@ -11,7 +11,7 @@ class FloatField : public Source<float>, public InteractiveElement
 {
 private:
 	int visibleCharacters = 5;
-	int dstDigitSize;
+	int dstDigitSize = 8;
 	int digitGap = 2;
 	bool has_decimal = false;
 	padding pad;
@@ -20,11 +20,11 @@ private:
 public:
 	std::string capturedData;
 	int maxData = -1;
-	int caret = 0; // The cursor thingy
-	float output;
+	size_t caret = 0; // The cursor thingy
+	float output = 0;
 
 	SDL_Texture* digits = NULL;
-	int srcDigitSize;
+	int srcDigitSize = 8;
 
 	int flashCycleStart = 0;
 	int flashCycle = 500;

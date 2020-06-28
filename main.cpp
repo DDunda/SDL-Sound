@@ -9,7 +9,8 @@
 
 #define SOUND_FREQUENCY 44100.0
 
-#include "Sound.cpp"
+#include "Keyboard.h"
+#include "Sound.h"
 #include "Input.h"
 #include "RenderableElement.h"
 #include "InteractiveElement.h"
@@ -168,7 +169,7 @@ void initialiseSDL() {
 	}
 
 	SDL_AudioSpec config;
-	config.freq = SOUND_FREQUENCY;
+	config.freq = (int)SOUND_FREQUENCY;
 	config.format = AUDIO_F32;
 	config.channels = 1;
 	config.callback = PushAudio;
@@ -200,8 +201,8 @@ EasyPointer<blendAdd> SetupWaves(std::vector<tone>& waves) {
 	blendAdd* soundMerge = new blendAdd();
 
 	for (int i = 0; i < waves.size(); i++) {
-		sineSound* sine = new sineSound(new Val<float>(waves[i].freq / SOUND_FREQUENCY));
-		volumeFilter* vol = new volumeFilter(sine, new Val<float>(powf(10, (waves[i].vol + 30) / 10.0)));
+		sineSound* sine = new sineSound(new Val<float>(waves[i].freq / (float)SOUND_FREQUENCY));
+		volumeFilter* vol = new volumeFilter(sine, new Val<float>(powf(10, (waves[i].vol + 30.0f) / 10.0f)));
 		soundMerge->addSource(vol);
 	}
 
@@ -223,12 +224,12 @@ public:
 	float harmonic;
 	VoiceFilter(float h, epf v1, epf v2, epf v3, epf f1, epf f2, epf f3, epf s1, epf s2, epf s3) : harmonic(h), vol1(v1), vol2(v2), vol3(v3), freq1(f1), freq2(f2), freq3(f3), spread1(s1), spread2(s2), spread3(s3) {}
 	float GetAmp(float a) {
-		return powf(10, a / 10.0);
+		return powf(10, a / 10.0f);
 	}
 	float Get() {
-		return GetAmp(vol1->Get()) / (powf((harmonic + 1 - freq1->Get()) / spread1->Get(), 2.0) + 1.0) +
-			GetAmp(vol2->Get()) / (powf((harmonic + 1 - freq2->Get()) / spread2->Get(), 2.0) + 1.0) +
-			GetAmp(vol3->Get()) / (powf((harmonic + 1 - freq3->Get()) / spread3->Get(), 2.0) + 1.0);
+		return GetAmp(vol1->Get()) / (powf((harmonic + 1 - freq1->Get()) / spread1->Get(), 2.0) + 1.0f) +
+			GetAmp(vol2->Get()) / (powf((harmonic + 1 - freq2->Get()) / spread2->Get(), 2.0) + 1.0f) +
+			GetAmp(vol3->Get()) / (powf((harmonic + 1 - freq3->Get()) / spread3->Get(), 2.0) + 1.0f);
 	}
 	void reset() {
 		vol1->reset();
@@ -253,15 +254,15 @@ EasyPointer<blendAdd> SetupVoice(int base = 100, int harmonics = 50) {
 	EasyPointer<FloatField> F2sField = new FloatField();
 	EasyPointer<FloatField> F3sField = new FloatField();
 
-	F1fField->setValue(2.7);
-	F2fField->setValue(22.9);
-	F3fField->setValue(30.1);
+	F1fField->setValue(2.7f);
+	F2fField->setValue(22.9f);
+	F3fField->setValue(30.1f);
 
 	F1vField->setValue(-4);
 	F2vField->setValue(-24);
 	F3vField->setValue(-26);
 
-	F1sField->setValue(0.25);
+	F1sField->setValue(0.25f);
 	F2sField->setValue(3);
 	F3sField->setValue(2);
 
@@ -281,8 +282,8 @@ EasyPointer<blendAdd> SetupVoice(int base = 100, int harmonics = 50) {
 	}
 
 	for (int i = 0; i < harmonics; i++) {
-		sineSound* sine = new sineSound(new Val<float>(((i + 1) * base) / SOUND_FREQUENCY));
-		volumeFilter* vol = new volumeFilter(sine,new VoiceFilter(i,
+		sineSound* sine = new sineSound(new Val<float>(((i + 1) * base) / (float)SOUND_FREQUENCY));
+		volumeFilter* vol = new volumeFilter(sine,new VoiceFilter((float)i,
 			F1vField, F2vField, F3vField,
 			F1fField, F2fField, F3fField,
 			F1sField, F2sField, F3sField
@@ -293,12 +294,11 @@ EasyPointer<blendAdd> SetupVoice(int base = 100, int harmonics = 50) {
 	return soundMerge;
 }
 
-
 void SetupVolField() {
 	volField = new FloatField();
 
 	volField->maxData = 8;
-	volField->setValue(0.01);
+	volField->setValue(0.01f);
 
 	volField->setAnchor(0, 0);
 	volField->setVisibleCharacters(8);
@@ -363,176 +363,7 @@ void SetupPlayButton() {
 	};
 }
 
-class KeyListener : public Source<float> {
-private:
-	bool active = false;
-	fadeFilter f;
-public:
-	SDL_Keycode key;
-	KeyListener(EasyPointer<Source<float>> s, SDL_Keycode k) : f(s, new Val<float>(0.01), new Val<float>(10/SOUND_FREQUENCY)) {
-		key = k;
-	}
-	void frameUpdate() {
-		if (keyReleased(key)) {
-			active = false;
-			f.stop();
-		}
-		else if(keyPressed(key)) {
-			active = true;
-			f.start();
-		}
-	}
-	float Get() {
-		return f.Get();
-	}
-	void reset() {
-		f.reset();
-	}
-};
-
-void MakeKey(blendAdd& b, float f, SDL_Keycode k) {
-	//auto vibrato = new dualAdd(new dualMultiply(new sineSound(new Val<float>(2)), new Val<float>(1 / 16.0)), new Val<float>(1 / 2.0));
-	//auto sound = new pulseSound(new Val<float>(f),vibrato);
-	auto vibrato = new dualMultiply(new dualAdd(new dualMultiply(new sineSound(new Val<float>(5)),new Val<float>(0.01)), new Val<float>(1)), new Val<float>(f));
-	auto sound = new sawtoothSound(vibrato);
-	b.addSource(new KeyListener(sound,k));
-}
-
-class keyBoardRenderer : public RenderableElement {
-private:
-	void renderBlack(SDL_Renderer* r, bool s, int n) {
-		int w_left = area.w * n / keys;
-		int w_right = area.w * (n+1) / keys;
-
-		int w_w = w_right - w_left;
-		int w_h = area.h;
-		int w_x = area.x + w_left;
-		int w_y = area.y;
-
-		int b_w = w_w * 0.5;
-		int b_h = w_h * 0.5;
-		int b_x = w_x + w_w * 0.75;
-		int b_y = w_y;
-
-		SDL_Rect outer{ b_x,b_y,b_w,b_h };
-		SDL_SetRenderDrawColor(r, 25, 25, 25, 255);
-		SDL_RenderFillRect(r, &outer);
-
-		int border = area.w * 0.1 / keys;
-		SDL_Rect inner{ b_x + border, b_y + border, b_w - 2 * border, b_h - 2 * border };
-		if (!s) SDL_SetRenderDrawColor(r, 56, 56, 56, 255);
-		SDL_RenderFillRect(r, &inner);
-	}
-	void renderWhite(SDL_Renderer* r, bool s, int n) {
-		int left = area.w * n / keys;
-		int right = area.w * (n + 1) / keys;
-
-		int w = right - left;
-		int h = area.h;
-		int x = left;
-		int y = area.y;
-		SDL_Rect outer{ x,y,w,h };
-		SDL_SetRenderDrawColor(r, 225, 225, 225, 255);
-		SDL_RenderFillRect(r, &outer);
-
-		int border = area.w * 0.1 / keys;
-		SDL_Rect inner{ x + border, y + border, w - 2 * border, h - 2 * border };
-		if (!s) SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
-		SDL_RenderFillRect(r, &inner);
-	}
-public:
-	SDL_Rect area;
-	int keys;
-
-	std::vector<SDL_Keycode> whiteKeys;
-	std::vector<SDL_Keycode> blackKeys;
-
-	keyBoardRenderer(int k = 14) : keys(k), RenderableElement() {
-		area = { 0,screenHeight / 2, screenWidth, screenHeight / 2 };
-	}
-	void update() {
-		TryCall(OnUpdate);
-		area = { 0,screenHeight / 2, screenWidth, screenHeight / 2 };
-		waveformDrawArea = { 0,0,screenWidth, screenHeight / 2 };
-	};
-	void render(SDL_Renderer* r) {
-		TryCall(OnRender);
-
-		for (int i = 0; i < keys; i++) {
-			renderWhite(r, keyDown(whiteKeys[i]), i);
-		}
-
-		int keyNum = 0;
-		for (int i = 0; i < keys; i++) {
-			if ((i % 7) == 2 || (i % 7) == 6) continue;
-			renderBlack(r, keyDown(blackKeys[keyNum]), i);
-			keyNum++;
-		}
-	};
-};
-
-EasyPointer<keyBoardRenderer> board;
-
-EasyPointer<Source<float>> MakeKeyboard() {
-	blendAdd* keyboardBlender = new blendAdd();
-
-	// Black:    1 2   4 5 6   8 9   - = <=   s d   g h j
-	// White: TAB q w e r t y u i o p [ ]  \ z x c v b n m
-
-	using namespace noteFrequencies;
-	MakeKey(*keyboardBlender, C3 , SDLK_TAB         );
-	MakeKey(*keyboardBlender, Cs3, SDLK_1           );
-	MakeKey(*keyboardBlender, D3 , SDLK_q           );
-	MakeKey(*keyboardBlender, Ds3, SDLK_2           );
-	MakeKey(*keyboardBlender, E3 , SDLK_w           );
-	MakeKey(*keyboardBlender, F3 , SDLK_e           );
-	MakeKey(*keyboardBlender, Fs3, SDLK_4           );
-	MakeKey(*keyboardBlender, G3 , SDLK_r           );
-	MakeKey(*keyboardBlender, Gs3, SDLK_5           );
-	MakeKey(*keyboardBlender, A3 , SDLK_t           );
-	MakeKey(*keyboardBlender, As3, SDLK_6           );
-	MakeKey(*keyboardBlender, B3,  SDLK_y           );
-
-	MakeKey(*keyboardBlender, C4,  SDLK_u           );
-	MakeKey(*keyboardBlender, Cs4, SDLK_8           );
-	MakeKey(*keyboardBlender, D4,  SDLK_i           );
-	MakeKey(*keyboardBlender, Ds4, SDLK_9           );
-	MakeKey(*keyboardBlender, E4,  SDLK_o           );
-	MakeKey(*keyboardBlender, F4,  SDLK_p           );
-	MakeKey(*keyboardBlender, Fs4, SDLK_MINUS       );
-	MakeKey(*keyboardBlender, G4,  SDLK_LEFTBRACKET );
-	MakeKey(*keyboardBlender, Gs4, SDLK_EQUALS      );
-	MakeKey(*keyboardBlender, A4,  SDLK_RIGHTBRACKET);
-	MakeKey(*keyboardBlender, As4, SDLK_BACKSPACE   );
-	MakeKey(*keyboardBlender, B4,  SDLK_BACKSLASH   );
-	
-	MakeKey(*keyboardBlender, C5,  SDLK_z           );
-	MakeKey(*keyboardBlender, Cs5, SDLK_s           );
-	MakeKey(*keyboardBlender, D5,  SDLK_x           );
-	MakeKey(*keyboardBlender, Ds5, SDLK_d           );
-	MakeKey(*keyboardBlender, E5,  SDLK_c           );
-	MakeKey(*keyboardBlender, F5,  SDLK_v           );
-	MakeKey(*keyboardBlender, Fs5, SDLK_g           );
-	MakeKey(*keyboardBlender, G5,  SDLK_b           );
-	MakeKey(*keyboardBlender, Gs5, SDLK_h           );
-	MakeKey(*keyboardBlender, A5,  SDLK_n           );
-	MakeKey(*keyboardBlender, As5, SDLK_j           );
-	MakeKey(*keyboardBlender, B5,  SDLK_m           );
-	
-	board = new keyBoardRenderer(21);
-	board->blackKeys = {
-		SDLK_1, SDLK_2, SDLK_4,     SDLK_5,      SDLK_6,
-		SDLK_8, SDLK_9, SDLK_MINUS, SDLK_EQUALS, SDLK_BACKSPACE,
-		SDLK_s, SDLK_d, SDLK_g,     SDLK_h,      SDLK_j,
-	};
-	board->whiteKeys = {
-		SDLK_TAB, SDLK_q, SDLK_w, SDLK_e, SDLK_r,           SDLK_t,            SDLK_y,
-		SDLK_u,   SDLK_i, SDLK_o, SDLK_p, SDLK_LEFTBRACKET, SDLK_RIGHTBRACKET, SDLK_BACKSLASH,
-		SDLK_z,   SDLK_x, SDLK_c, SDLK_v, SDLK_b,           SDLK_n,            SDLK_m,
-	};
-
-	return keyboardBlender;
-}
+EasyPointer<Keyboard> board;
 
 int main(int argc, char* argv[]) {
 	initialiseSDL();	
@@ -569,13 +400,15 @@ int main(int argc, char* argv[]) {
 	
 	//song = new PianoRoll("Melody1.prm");
 
+	board = new Keyboard();
+
 	//EasyPointer<volumeFilter> volMod = new volumeFilter(song, volField);
-	EasyPointer<volumeFilter> volMod = new volumeFilter(MakeKeyboard(), volField);
+	EasyPointer<volumeFilter> volMod = new volumeFilter(board, volField);
 
 	finalFilter = new fadeFilter(
 		volMod,
-		new Val<float>(0.01),
-		new Val<float>(0.001)
+		new Val<float>(0.01f),
+		new Val<float>(0.001f)
 	);
 	waveOutput = finalFilter;
 
@@ -586,11 +419,11 @@ int main(int argc, char* argv[]) {
 	int lastFrameEnd = SDL_GetTicks();
 
 	finalFilter->start();
-
+	
 	while (running || soundRunning) {
 		lastTime = currentTime;
 		currentTime = SDL_GetTicks();
-		deltaTime = (float)(currentTime - lastTime) / 1000.0;
+		deltaTime = (float)(currentTime - lastTime) / 1000.0f;
 		getEvents();
 
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -617,7 +450,6 @@ int main(int argc, char* argv[]) {
 		if (mult < 0) mult = 0;
 
 		soundMax -= mult;
-		soundMin += mult;
 		
 		renderRequested.store(true);
 		while (renderRequested.load()) SDL_Delay(1);
@@ -658,19 +490,19 @@ void PushAudio(void* userdata, Uint8* stream, int len) {
 				soundBuffer[i] = waveOutput->Get();
 				if (soundBuffer[i] > soundMax) soundMax = soundBuffer[i];
 				if (-soundBuffer[i] > soundMax) soundMax = -soundBuffer[i];
-				if (soundMax < 0.001) soundMax = 0.001;
+				if (soundMax < 0.001f) soundMax = 0.001f;
 
 				if (renderRequested.load()) {
 					int lx = waveformDrawArea.x + (soundDrawn - 1) * waveformDrawArea.w / samples;
 					int x = waveformDrawArea.x + soundDrawn * waveformDrawArea.w / samples;
 					if (!finalFilter->finished()) {
-						float fitted = 1.0 - (soundBuffer[li] / 2.0 + soundMax) / 2.0 / soundMax;
-						float nextFitted = 1.0 - (soundBuffer[i] / 2.0 + soundMax) / 2.0 / soundMax;
+						float fitted = 1.0f - (soundBuffer[li] / 2.0f + soundMax) / 2.0f / soundMax;
+						float nextFitted = 1.0f - (soundBuffer[i] / 2.0f + soundMax) / 2.0f / soundMax;
 						SDL_RenderDrawLine(renderer,
 							lx,
-							waveformDrawArea.y + waveformDrawArea.h * fitted,
+							waveformDrawArea.y + (int)(waveformDrawArea.h * fitted),
 							x,
-							waveformDrawArea.y + waveformDrawArea.h * nextFitted);
+							waveformDrawArea.y + (int)(waveformDrawArea.h * nextFitted));
 					}
 					else {
 						SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -692,9 +524,8 @@ void PushAudio(void* userdata, Uint8* stream, int len) {
 			for (int i = 0; i < len / sizeof(float); i++) {
 				soundBuffer[i] = waveOutput->Get();
 				if (soundBuffer[i] > soundMax) soundMax = soundBuffer[i];
-				if (soundBuffer[i] < soundMin) soundMin = soundBuffer[i];
-				if (soundMin > -0.001) soundMin = -0.001;
-				if (soundMax < 0.001) soundMax = 0.001;
+				if (-soundBuffer[i] > soundMax) soundMax = -soundBuffer[i];
+				if (soundMax < 0.001f) soundMax = 0.001f;
 				li = i;
 			}
 		}

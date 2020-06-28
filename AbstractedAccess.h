@@ -7,14 +7,11 @@ struct ValueContainer {
 	ValueContainer() {
 		ownerships = 1;
 	}
-	~ValueContainer() {
-	}
 	void addPtr() {
 		ownerships++;
 	}
 	void removePtr() {
 		ownerships--;
-		if (ownerships == 0) delete this;
 	}
 };
 
@@ -25,9 +22,7 @@ public:
 	T* ptr = NULL;
 
 	EasyPointer() {}
-	EasyPointer(T* val) : internalPtr(new ValueContainer()), ptr(val) {
-		internalPtr->addPtr();
-	}
+	EasyPointer(T* val) : internalPtr(new ValueContainer()), ptr(val) {	}
 	EasyPointer(const EasyPointer<T>& val) : internalPtr(val.internalPtr), ptr(val.ptr) {
 		internalPtr->addPtr();
 	}
@@ -36,28 +31,9 @@ public:
 		internalPtr->addPtr();
 	}
 	~EasyPointer() {
-		if (internalPtr == NULL) return;
+		RemovePointer();
+	}
 
-		internalPtr->removePtr();
-
-		if (internalPtr->ownerships == 0) delete ptr;
-		internalPtr = NULL;
-		ptr = NULL;
-	}
-	template <class T2>
-	void NewPointer(T2* val) {
-		if (internalPtr != NULL) internalPtr->removePtr();
-		internalPtr = new ValueContainer();
-		ptr = (T*)val;
-	}
-	void NewPointer(T* val) {
-		if (internalPtr != NULL) internalPtr->removePtr();
-		internalPtr = new ValueContainer();
-		ptr = val;
-	}
-	void NewPointer() {
-		NewPointer(new T);
-	}
 	T& operator* ()
 	{
 		return *ptr;
@@ -66,8 +42,12 @@ public:
 	{
 		return ptr;
 	}
+	operator T* () {
+		return ptr;
+	}
+
 	void operator= (const EasyPointer<T>& p) {
-		if (internalPtr != NULL) internalPtr->removePtr();
+		RemovePointer();
 
 		internalPtr = p.internalPtr;
 		ptr = p.ptr;
@@ -77,7 +57,7 @@ public:
 	}
 	template <class T2>
 	void operator= (const EasyPointer<T2>& p) {
-		if (internalPtr != NULL) internalPtr->removePtr();
+		RemovePointer();
 
 		internalPtr = p.internalPtr;
 		ptr = (T*)p.ptr;
@@ -85,17 +65,28 @@ public:
 		if (internalPtr != NULL) internalPtr->addPtr();
 		else ptr = NULL;
 	}
+
 	bool isSet() {
-		return !(internalPtr == NULL);
+		return internalPtr != NULL;
+	}
+	void RemovePointer() {
+		if (internalPtr == NULL) return;
+
+		internalPtr->removePtr();
+
+		if (internalPtr->ownerships == 0) {
+			delete ptr;
+			delete internalPtr;
+		}
+		internalPtr = NULL;
+		ptr = NULL;
 	}
 };
 
 template <class T>
 class GetVal {
 public:
-	virtual T Get() {
-		return T();
-	};
+	virtual T Get() = 0;
 };
 
 template <class T>
@@ -162,6 +153,9 @@ public:
 	}
 	void reset() {}
 };
+
+typedef Val<float> fVal;
+typedef EasyPointer<Source<float>> epSource;
 
 /*#pragma once
 

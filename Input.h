@@ -8,19 +8,19 @@
 #include <stdexcept>
 #include <map>
 
-static struct keystate {
+struct keystate {
 	Uint32 down = 0;
 	Uint32 up = 0;
 };
 
-static struct buttonState {
+struct buttonState {
 	Uint32 down = 0;
 	Sint32 downX = 0, downY = 0;
 	Uint32 up = 0;
 	Sint32 upX = 0, upY = 0;
 };
 
-static struct keyboardData {
+struct keyboardData {
 	Uint32 lastUpdated = 0;
 	std::map<SDL_Scancode, keystate> last_keys_scancode;
 	std::map<SDL_Keycode, keystate> last_keys_keycode;

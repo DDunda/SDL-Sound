@@ -48,6 +48,12 @@
     <ClCompile Include="AbstractedAccess.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Keyboard.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Sound.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="Melody1.prm" />
@@ -147,6 +153,12 @@
     <CopyFileToFolders Include="SDL2_image\lib\x86\zlib1.dll">
       <Filter>x86</Filter>
     </CopyFileToFolders>
+    <CopyFileToFolders Include="chars.png">
+      <Filter>Resource Files</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="Nums.png">
+      <Filter>Resource Files</Filter>
+    </CopyFileToFolders>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Input.h">
@@ -169,9 +181,6 @@
     </ClInclude>
     <ClInclude Include="PianoRoll.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Sound.cpp">
-      <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="AbstractedAccess.h">
       <Filter>Header Files</Filter>
@@ -431,13 +440,11 @@
     <ClInclude Include="SDL2\include\SDL_vulkan.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="Nums.png">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="chars.png">
-      <Filter>Resource Files</Filter>
-    </Image>
+    <ClInclude Include="Keyboard.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Sound.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

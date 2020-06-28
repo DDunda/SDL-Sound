@@ -28,8 +28,8 @@ static std::map<SDL_Keycode, char> numberKeymapping
 };
 
 void FloatField::setAnchor(float aX, float aY) {
-	float posX = clickArea.x + clickArea.w * anchorX;
-	float posY = clickArea.y + clickArea.h * anchorY;
+	int posX = clickArea.x + clickArea.w * anchorX;
+	int posY = clickArea.y + clickArea.h * anchorY;
 
 	anchorX = aX;
 	anchorY = aY;
@@ -87,7 +87,7 @@ void FloatField::setValue(float v) {
 	if (maxData != -1)
 		capturedData.erase(maxData, capturedData.size() - maxData);
 
-	for (int i = capturedData.size() - 1; i >= 0; i--) {
+	for (long long i = (long long)capturedData.size() - 1; i >= 0; i--) {
 		if (capturedData[i] == '.') {
 			capturedData.erase(i, capturedData.size() - i);
 			has_decimal = false;
@@ -106,15 +106,15 @@ void FloatField::setValue(float v) {
 void FloatField::update() {
 	if (infocus) {
 		if (buttonPressed(SDL_BUTTON_LEFT)) {
-			int caretsX = clickArea.x + pad.left + dstDigitSize * 0.5;
-			int careteX = clickArea.x + pad.left + dstDigitSize * 0.5 + (std::min(visibleCharacters, (int)capturedData.size()) - 1) * (dstDigitSize + digitGap);
+			int caretsX = clickArea.x + pad.left + dstDigitSize * 0.5f;
+			int careteX = clickArea.x + pad.left + dstDigitSize * 0.5f + (std::min(visibleCharacters, (int)capturedData.size()) - 1) * (dstDigitSize + digitGap);
 
 			if (mouseX <= caretsX)
 				caret = 0;
 			else if (mouseX > careteX)
 				caret = capturedData.size();
 			else
-				caret = (mouseX - dstDigitSize * 0.5 - clickArea.x - pad.left) / (dstDigitSize + digitGap) + 1;
+				caret = (mouseX - dstDigitSize * 0.5 - clickArea.x - pad.left) / ((long long)dstDigitSize + digitGap) + 1LL;
 		}
 
 		for (auto keypair : globalKeyboard.keys_keycode) {
@@ -299,9 +299,9 @@ void FloatField::render(SDL_Renderer* renderer) {
 		}
 		else {
 			SDL_RenderDrawLine(renderer,
-				clickArea.x + pad.left + (dstDigitSize + digitGap) * caret - digitGap / 2,
+				clickArea.x + pad.left + ((long long)dstDigitSize + digitGap) * caret - digitGap / 2,
 				clickArea.y + pad.top,
-				clickArea.x + pad.left + (dstDigitSize + digitGap) * caret - digitGap / 2,
+				clickArea.x + pad.left + ((long long)dstDigitSize + digitGap) * caret - digitGap / 2,
 				clickArea.y + pad.top + dstDigitSize
 			);
 		}
