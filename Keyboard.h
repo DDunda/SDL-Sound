@@ -10,33 +10,35 @@ extern SDL_Rect waveformDrawArea;
 
 class Keyboard;
 
+extern void DrawRectWithBorder(SDL_Renderer* renderer, SDL_Rect area, int t, SDL_Colour inner, SDL_Colour border);
+
 class Key : public Source<float> {
 protected:
 	Keyboard& parent;
 
 public:
-	EasyPointer<fVal> frequency;
+	EasyPointer<fVal> rawFrequency;
+	Pipe<float> frequency;
 	//fadeFilter* sound;
 	fadeFilter* sound;
 	int noteNum;
+	SDL_Rect area;
 
 	SDL_Keycode key;
 	bool active = false;
 	bool white = false;
 
 	void SetOctave(int o) {
-		frequency->Set(Octaves::OctaveSet[o]->notes[noteNum]);
+		rawFrequency->Set(Octaves::OctaveSet[o]->notes[noteNum]);
 	}
-	Key(Keyboard& p, int octave, int number, SDL_Keycode keycode) : parent(p), noteNum(number), frequency(new fVal(0.0f)) {
+	Key(Keyboard& p, int octave, int number, SDL_Keycode keycode) : parent(p), noteNum(number), rawFrequency(new fVal(0.0f)), frequency(new dualMultiply(new propertyWave(5.0f, 0.0f, 0.99f, 1.01f), rawFrequency)) {
 		key = keycode;
 
 		SetOctave(octave);
 
 		white = (number <= 4 && !(number & 1)) || (number > 4 && (number & 1));
 
-
-		dualMultiply* vibrato = new dualMultiply(new propertyWave(5.0f,0.0f,0.99f,1.01f), frequency);
-		sound = new fadeFilter(new sineSound(vibrato), 0.01f, 10.0f / (float)SOUND_FREQUENCY);
+		sound = new fadeFilter(new sineSound(frequency), 0.01f, 100.0f);
 	}
 	~Key() {
 		delete sound;
@@ -53,13 +55,17 @@ public:
 	void reset() {
 		sound->reset();
 	}
+
+	void Draw() {
+
+	}
 };
 
 class Keyboard : public Source<float>, public RenderableElement {
 protected:
 	int numOctaves = 3;
 
-	void renderBlack(SDL_Renderer* r, bool s, int n) {
+	SDL_Rect CalculateBlackArea(int n) {
 		int w_left = renderArea.w * n / (numOctaves * 7);
 		int w_right = renderArea.w * (n + 1) / (numOctaves * 7);
 
@@ -73,16 +79,10 @@ protected:
 		int b_x = w_x + w_w * 3 / 4;
 		int b_y = w_y;
 
-		SDL_Rect outer{ b_x,b_y,b_w,b_h };
-		SDL_SetRenderDrawColor(r, 25, 25, 25, 255);
-		SDL_RenderFillRect(r, &outer);
-
-		int border = renderArea.w / ((long long)numOctaves * 7 * 10);
-		SDL_Rect inner{ b_x + border, b_y + border, b_w - 2 * border, b_h - 2 * border };
-		if (!s) SDL_SetRenderDrawColor(r, 56, 56, 56, 255);
-		SDL_RenderFillRect(r, &inner);
+		return { b_x,b_y,b_w,b_h };
 	}
-	void renderWhite(SDL_Renderer* r, bool s, int n) {
+
+	SDL_Rect CalculateWhiteArea(int n) {
 		int left = renderArea.w * n / (numOctaves * 7);
 		int right = renderArea.w * (n + 1) / (numOctaves * 7);
 
@@ -90,14 +90,20 @@ protected:
 		int h = renderArea.h;
 		int x = left;
 		int y = renderArea.y;
-		SDL_Rect outer{ x,y,w,h };
-		SDL_SetRenderDrawColor(r, 225, 225, 225, 255);
-		SDL_RenderFillRect(r, &outer);
+		return { x,y,w,h };
+	}
 
-		int border = renderArea.w / ((long long)numOctaves * 7 * 10);
-		SDL_Rect inner{ x + border, y + border, w - 2 * border, h - 2 * border };
-		if (!s) SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
-		SDL_RenderFillRect(r, &inner);
+	void renderBlack(SDL_Renderer* r, bool s, SDL_Rect area) {
+		if(!s) return DrawRectWithBorder(r, area, borderThickness, { 56,56,56,255 }, { 25,25,25,255 });
+
+		SDL_SetRenderDrawColor(r, 25, 25, 25, 255);
+		SDL_RenderFillRect(r, &area);
+	}
+	void renderWhite(SDL_Renderer* r, bool s, SDL_Rect area) {
+		if (!s) return DrawRectWithBorder(r, area, borderThickness, { 255,255,255,255 }, { 225,225,225,255 });
+
+		SDL_SetRenderDrawColor(r, 225, 225, 225, 255);
+		SDL_RenderFillRect(r, &area);
 	}
 
 	std::vector<EasyPointer<Key>> keys;
@@ -122,32 +128,27 @@ protected:
 			{
 			case 0:
 				for (int i = 0; i < numOctaves * 12; i++) {
-					keys[i]->frequency = new fVal(keys[i]->frequency->Get());
 					keys[i]->sound->source = new sineSound(keys[i]->frequency);
 				}
 				break;
 			case 1:
 				for (int i = 0; i < numOctaves * 12; i++) {
-					keys[i]->frequency = new fVal(keys[i]->frequency->Get());
 					keys[i]->sound->source = new triangleSound(keys[i]->frequency);
 				}
 				break;
 			case 2:
 				for (int i = 0; i < numOctaves * 12; i++) {
-					keys[i]->frequency = new fVal(keys[i]->frequency->Get());
-					keys[i]->sound->source = new squareSound(keys[i]->frequency);
+					keys[i]->sound->source = new dualMultiply(new fVal(0.3f), new squareSound(keys[i]->frequency));
 				}
 				break;
 			case 3:
 				for (int i = 0; i < numOctaves * 12; i++) {
-					keys[i]->frequency = new fVal(keys[i]->frequency->Get());
-					keys[i]->sound->source = new sawtoothSound(keys[i]->frequency);
+					keys[i]->sound->source = new dualMultiply(new fVal(0.3f), new sawtoothSound(keys[i]->frequency));
 				}
 				break;
 			case 4:
 				for (int i = 0; i < numOctaves * 12; i++) {
-					keys[i]->frequency = new fVal(keys[i]->frequency->Get());
-					keys[i]->sound->source = new noiseSound(keys[i]->frequency);
+					keys[i]->sound->source = new dualMultiply(new fVal(0.3f), new noiseSound(keys[i]->frequency));
 				}
 				break;
 			}
@@ -159,6 +160,8 @@ public:
 	static SDL_Keycode KeyMapping[36];
 	int firstOctave = 3;
 	int selectedSynth = 0;
+
+	int borderThickness = 5;
 	
 	void update() {
 		TryCall(OnUpdate);
@@ -187,24 +190,57 @@ public:
 			SetSynths(selectedSynth - 1);
 		}
 
+		bool blackKeyClicked = false;
+
+		int blackNum = 0;
 		for (auto key : keys) {
-			if (keyReleased(key->key)) {
+			if (!key->white) {
+				bool lastState = key->active;
 				key->active = false;
-				key->stop();
+				key->area = CalculateBlackArea(blackNum++);
+				if ((blackNum % 7) == 2 || (blackNum % 7) == 6) blackNum++;
+
+				if (keyDown(key->key)) key->active = true;
+				if (buttonDown(SDL_BUTTON_LEFT) && inBounds(key->area, mouseX, mouseY)) {
+					key->active = true;
+					blackKeyClicked = true;
+				}
+
+				if (lastState == key->active) continue;
+
+				if (key->active) key->start();
+				else key->stop();
+
 			}
-			else if (keyPressed(key->key)) {
-				key->active = true;
-				key->start();
+		}
+
+		int whiteNum = 0;
+		for (auto key : keys) {
+			if (key->white) {
+				bool lastState = key->active;
+				key->active = false;
+				key->area = CalculateWhiteArea(whiteNum++);
+
+				if (keyDown(key->key)) key->active = true;
+				// White keys can be under black keys, so a black key being clicked means a white key cannot be
+				if (buttonDown(SDL_BUTTON_LEFT) && inBounds(key->area, mouseX, mouseY) && !blackKeyClicked)	key->active = true;
+
+				if (lastState == key->active) continue;
+
+				if (key->active) key->start();
+				else key->stop();
 			}
 		}
 	};
 	void render(SDL_Renderer* r) {
 		TryCall(OnRender);
 
+		borderThickness = renderArea.w / ((long long)numOctaves * 7 * 10);
+
 		int whiteNum = 0;
 		for (auto key : keys) {
 			if (key->white) {
-				renderWhite(r, key->active, whiteNum);
+				renderWhite(r, key->active, key->area);
 				whiteNum++;
 			}
 		}
@@ -212,7 +248,7 @@ public:
 		int blackNum = 0;
 		for (auto key : keys) {
 			if (!key->white) {
-				renderBlack(r, key->active, blackNum);
+				renderBlack(r, key->active, key->area);
 
 				blackNum++;
 				if ((blackNum % 7) == 2 || (blackNum % 7) == 6) blackNum++;

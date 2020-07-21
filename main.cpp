@@ -188,6 +188,8 @@ void initialiseSDL() {
 		exit(-1);
 	}
 
+	SDL_SetWindowTitle(window, "SynthBoard");
+
 	if (!IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG | IMG_INIT_TIF | IMG_INIT_WEBP)) {
 		IMG_Quit();
 		SDL_DestroyWindow(window);
@@ -408,7 +410,7 @@ int main(int argc, char* argv[]) {
 	finalFilter = new fadeFilter(
 		volMod,
 		new Val<float>(0.01f),
-		new Val<float>(0.001f)
+		new Val<float>(1000.0f)
 	);
 	waveOutput = finalFilter;
 

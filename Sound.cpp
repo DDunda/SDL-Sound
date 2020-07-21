@@ -216,7 +216,7 @@ float fadeFilter::getSound() {
 	// Fade in to full volume
 	if (stopped) return BlendWithFade(0);
 
-	volume += decayRate->Get();
+	volume += decayRate->Get() / SOUND_FREQUENCY;
 	if (volume > 1) volume = 1;
 	//return 0;
 
@@ -233,7 +233,7 @@ bool fadeFilter::finished() {
 void fadeFilter::stop() {
 	stopped = true;
 	SDL_LockMutex(bufferLock);
-	for (int i = 0; volume > 0; i++, volume -= decayRate->Get()) {
+	for (int i = 0; volume > 0; i++, volume -= decayRate->Get() / SOUND_FREQUENCY) {
 		if (i >= resumeBuffer.size())
 			resumeBuffer.push_back(0);
 		resumeBuffer[i] += source->Get() * volume;

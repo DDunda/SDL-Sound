@@ -38,3 +38,15 @@ SDL_Keycode Keyboard::KeyMapping[36] = {
 		 SDLK_j,
 		SDLK_m,
 };
+
+void DrawRectWithBorder(SDL_Renderer* renderer, SDL_Rect area, int t, SDL_Colour inner, SDL_Colour border) {
+	SDL_SetRenderDrawColor(renderer, border.r, border.g, border.b, border.a);
+	SDL_RenderFillRect(renderer, &area);
+
+	// Border is bigger than the inside of the rectangle
+	if (2 * t > area.w || 2 * t > area.h) return;
+
+	SDL_Rect innerArea = { area.x + t, area.y + t, area.w - 2 * t, area.h - 2 * t };
+	SDL_SetRenderDrawColor(renderer, inner.r, inner.g, inner.b, inner.a);
+	SDL_RenderFillRect(renderer, &innerArea);
+}
