@@ -24,14 +24,14 @@ public:
 	int noteNum;
 	SDL_Rect area;
 
-	SDL_Keycode key;
+	SDL_Scancode key;
 	bool active = false;
 	bool white = false;
 
 	void SetOctave(int o) {
 		rawFrequency->Set(Octaves::OctaveSet[o]->notes[noteNum]);
 	}
-	Key(Keyboard& p, int octave, int number, SDL_Keycode keycode) : parent(p), noteNum(number), rawFrequency(new fVal(0.0f)), frequency(new dualMultiply(new propertyWave(5.0f, 0.0f, 0.99f, 1.01f), rawFrequency)) {
+	Key(Keyboard& p, int octave, int number, SDL_Scancode keycode) : parent(p), noteNum(number), rawFrequency(new fVal(0.0f)), frequency(new dualMultiply(new propertyWave(5.0f, 0.0f, 0.99f, 1.01f), rawFrequency)) {
 		key = keycode;
 
 		SetOctave(octave);
@@ -108,7 +108,7 @@ protected:
 
 	std::vector<EasyPointer<Key>> keys;
 
-	void MakeKey(int o, int n, SDL_Keycode k) {
+	void MakeKey(int o, int n, SDL_Scancode k) {
 		Key* key = new Key(*this, o, n, k);
 		keys.push_back(key);
 	}
@@ -157,7 +157,7 @@ protected:
 
 public:
 	SDL_Rect renderArea;
-	static SDL_Keycode KeyMapping[36];
+	static SDL_Scancode KeyMapping[36];
 	int firstOctave = 3;
 	int selectedSynth = 0;
 
@@ -200,7 +200,7 @@ public:
 				key->area = CalculateBlackArea(blackNum++);
 				if ((blackNum % 7) == 2 || (blackNum % 7) == 6) blackNum++;
 
-				if (keyDown(key->key)) key->active = true;
+				if (scancodeDown(key->key)) key->active = true;
 				if (buttonDown(SDL_BUTTON_LEFT) && inBounds(key->area, mouseX, mouseY)) {
 					key->active = true;
 					blackKeyClicked = true;
@@ -221,7 +221,7 @@ public:
 				key->active = false;
 				key->area = CalculateWhiteArea(whiteNum++);
 
-				if (keyDown(key->key)) key->active = true;
+				if (scancodeDown(key->key)) key->active = true;
 				// White keys can be under black keys, so a black key being clicked means a white key cannot be
 				if (buttonDown(SDL_BUTTON_LEFT) && inBounds(key->area, mouseX, mouseY) && !blackKeyClicked)	key->active = true;
 
