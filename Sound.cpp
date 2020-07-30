@@ -160,8 +160,8 @@ noiseSound::noiseSound(Pipe<float> f) {
 }
 float noiseSound::getSound() {
 	progress += frequency->Get() / SOUND_FREQUENCY;
-	if (progress > 1) {
-		progress = fmodf(progress, 1);
+	if (progress > 0.25) {
+		progress = fmodf(progress, 0.25);
 		setRandomAmplitude();
 	}
 	return amplitude;
@@ -253,4 +253,58 @@ void fadeFilter::restart() {
 }
 void fadeFilter::reset() {
 	restart();
+}
+
+LowPassFilter::LowPassFilter(Pipe<float> src, float cutoff) : filter(src) {
+	SetCutoff(cutoff);
+}
+
+float LowPassFilter::getSound() {
+	float output = lastOutput + (alpha * (source->Get() - lastOutput));
+	lastOutput = output;
+	return output;
+}
+
+void LowPassFilter::SetCutoff(float cutoff) {
+	RC = 1.0 / (cutoff * 2 * M_PI);
+	dt = 1.0 / SOUND_FREQUENCY;
+	alpha = dt / (RC + dt);
+}
+
+HighPassFilter::HighPassFilter(Pipe<float> src, float cutoff) : filter(src) {
+	SetCutoff(cutoff);
+}
+
+float HighPassFilter::getSound() {
+	float rawOutput = source->Get();
+	float output = alpha * (lastOutput + rawOutput - lastRawOutput);
+	lastRawOutput = rawOutput;
+	lastOutput = output;
+	return output;
+}
+
+void HighPassFilter::SetCutoff(float cutoff) {
+	RC = 1.0 / (cutoff * 2 * M_PI);
+	dt = 1.0 / SOUND_FREQUENCY;
+	alpha = RC / (RC + dt);
+}
+
+EchoFilter::EchoFilter(Pipe<float> src, float duration, Pipe<float> decay) : filter(src) {
+	unsigned len = duration * SOUND_FREQUENCY;
+	bufferStart = new float[len];
+	for (int i = 0; i < len; i++) bufferStart[i] = 0;
+	bufferEnd = bufferStart + len;
+	bufferHead = bufferStart;
+	decayRate = decay;
+}
+
+EchoFilter::~EchoFilter() {
+	delete[] bufferStart;
+}
+
+float EchoFilter::getSound() {
+	float sound = source->Get() + *bufferHead * decayRate->Get();
+	*bufferHead = sound;
+	if (++bufferHead == bufferEnd) bufferHead = bufferStart;
+	return sound;
 }

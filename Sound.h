@@ -271,7 +271,7 @@ class blendAdd : public blendFilter {
 public:
 	float getSound() {
 		float sound = 0;
-		for (auto src : sources) sound += src->Get();
+		for (int i = 0; i < sources.size(); i++) sound += sources[i]->Get();
 		return sound;
 	};
 };
@@ -448,6 +448,52 @@ public:
 	void start();
 	void restart();
 	void reset();
+};
+
+class LowPassFilter : filter {
+protected:
+	float cutoff_freq;
+	float dt;
+	float RC;
+	float alpha;
+
+	float lastOutput = 0;
+public:
+	LowPassFilter(Pipe<float> src, float cutoff);
+
+	float getSound();
+
+	void SetCutoff(float cutoff);
+};
+
+class HighPassFilter : filter {
+protected:
+	float cutoff_freq;
+	float dt;
+	float RC;
+	float alpha;
+
+	float lastRawOutput = 0;
+	float lastOutput = 0;
+public:
+	HighPassFilter(Pipe<float> src, float cutoff);
+
+	float getSound();
+
+	void SetCutoff(float cutoff);
+};
+
+class EchoFilter : public filter {
+protected:
+	float* bufferStart;
+	float* bufferEnd;
+	float* bufferHead;
+	Pipe<float> decayRate;
+
+public:
+	EchoFilter(Pipe<float> src, float duration, Pipe<float> decay);
+	~EchoFilter();
+	float getSound();
 };
 
 #endif

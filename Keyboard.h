@@ -19,8 +19,8 @@ protected:
 public:
 	EasyPointer<fVal> rawFrequency;
 	Pipe<float> frequency;
-	//fadeFilter* sound;
-	fadeFilter* sound;
+	EasyPointer<fadeFilter> sound;
+	LowPassFilter* gate;
 	int noteNum;
 	SDL_Rect area;
 
@@ -28,23 +28,34 @@ public:
 	bool active = false;
 	bool white = false;
 
-	void SetOctave(int o) {
-		rawFrequency->Set(Octaves::OctaveSet[o]->notes[noteNum]);
+	void SetFrequency(float f) {
+		rawFrequency->Set(f);
+		gate->SetCutoff(4 * f);
 	}
-	Key(Keyboard& p, int octave, int number, SDL_Scancode keycode) : parent(p), noteNum(number), rawFrequency(new fVal(0.0f)), frequency(new dualMultiply(new propertyWave(5.0f, 0.0f, 0.99f, 1.01f), rawFrequency)) {
+	void SetOctave(int o) {
+		SetFrequency(Octaves::OctaveSet[o]->notes[noteNum]);
+	}
+	Key(Keyboard& p, int octave, int number, SDL_Scancode keycode) : parent(p),
+		noteNum(number),
+		rawFrequency(new fVal(0.0f)),
+		//frequency(new dualMultiply(new propertyWave(5.0f, 0.0f, 0.99f, 1.01f),rawFrequency)) 
+		frequency(rawFrequency)
+	{
 		key = keycode;
-
-		SetOctave(octave);
 
 		white = (number <= 4 && !(number & 1)) || (number > 4 && (number & 1));
 
 		sound = new fadeFilter(new sineSound(frequency), 0.01f, 100.0f);
+
+		gate = new LowPassFilter(sound, rawFrequency->Get());
+
+		SetOctave(octave);
 	}
 	~Key() {
 		delete sound;
 	}
 	float Get() {
-		return sound->Get();
+		return gate->getSound();
 	};
 	void stop() {
 		sound->stop();
@@ -107,10 +118,13 @@ protected:
 	}
 
 	std::vector<EasyPointer<Key>> keys;
+	EasyPointer<blendAdd> adder;
+	EasyPointer<EchoFilter> echo;
 
-	void MakeKey(int o, int n, SDL_Scancode k) {
-		Key* key = new Key(*this, o, n, k);
+	EasyPointer<Key> MakeKey(int o, int n, SDL_Scancode k) {
+		EasyPointer<Key> key = EasyPointer<Key>(new Key(*this, o, n, k));
 		keys.push_back(key);
+		return key;
 	}
 
 	void SetKeyFrequencies() {
@@ -138,17 +152,20 @@ protected:
 				break;
 			case 2:
 				for (int i = 0; i < numOctaves * 12; i++) {
-					keys[i]->sound->source = new dualMultiply(new fVal(0.3f), new squareSound(keys[i]->frequency));
+					//keys[i]->sound->source = new dualMultiply(new fVal(0.3f), new squareSound(keys[i]->frequency));
+					keys[i]->sound->source = new squareSound(keys[i]->frequency);
 				}
 				break;
 			case 3:
 				for (int i = 0; i < numOctaves * 12; i++) {
-					keys[i]->sound->source = new dualMultiply(new fVal(0.3f), new sawtoothSound(keys[i]->frequency));
+					//keys[i]->sound->source = new dualMultiply(new fVal(0.3f), new sawtoothSound(keys[i]->frequency));
+					keys[i]->sound->source = new sawtoothSound(keys[i]->frequency);
 				}
 				break;
 			case 4:
 				for (int i = 0; i < numOctaves * 12; i++) {
-					keys[i]->sound->source = new dualMultiply(new fVal(0.3f), new noiseSound(keys[i]->frequency));
+					//keys[i]->sound->source = new dualMultiply(new fVal(0.3f), new noiseSound(keys[i]->frequency));
+					keys[i]->sound->source = new noiseSound(keys[i]->frequency);
 				}
 				break;
 			}
@@ -259,15 +276,19 @@ public:
 	Keyboard() {
 		renderArea = { 0,screenHeight / 2, screenWidth, screenHeight / 2 };
 
+		adder = new blendAdd();
 		for (int i = 0; i < numOctaves * 12; i++) {
-			MakeKey(firstOctave + i / 12, i % 12, KeyMapping[i]);
+			adder->addSource(MakeKey(firstOctave + i / 12, i % 12, KeyMapping[i]));
 		}
+
+		echo = new EchoFilter(adder, 0.25, new fVal(0.25));
 	}
 
 	float Get() {
-		float v = 0;
+		/*float v = 0;
 		for (int i = 0; i < keys.size(); i++)
 			v += keys[i]->Get();
-		return v;
+		return v;*/
+		return echo->getSound();
 	}
 };
