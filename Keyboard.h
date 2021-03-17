@@ -152,8 +152,8 @@ protected:
 				break;
 			case 2:
 				for (int i = 0; i < numOctaves * 12; i++) {
-					//keys[i]->sound->source = new dualMultiply(new fVal(0.3f), new squareSound(keys[i]->frequency));
-					keys[i]->sound->source = new squareSound(keys[i]->frequency);
+					keys[i]->sound->source = new dualMultiply(new fVal(0.3f), new squareSound(keys[i]->frequency));
+					//keys[i]->sound->source = new squareSound(keys[i]->frequency);
 				}
 				break;
 			case 3:
